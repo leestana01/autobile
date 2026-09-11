@@ -7,7 +7,7 @@ import org.junit.Test
 class AutonomyAndConfidenceTest {
 
     @Test
-    fun `confidence bands follow the spec ladder`() {
+    fun `confidence bands widen from degraded to high as the score rises`() {
         assertThat(SkillConfidence(score = 0.95f).band).isEqualTo(ConfidenceBand.HIGH)
         assertThat(SkillConfidence(score = 0.6f).band).isEqualTo(ConfidenceBand.MEDIUM)
         assertThat(SkillConfidence(score = 0.3f).band).isEqualTo(ConfidenceBand.LOW)
