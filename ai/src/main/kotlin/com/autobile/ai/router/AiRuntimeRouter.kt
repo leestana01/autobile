@@ -17,6 +17,8 @@ import com.autobile.core.model.InferenceRequirements
 import com.autobile.core.model.InferenceResult
 import com.autobile.core.model.RuntimeTier
 import kotlinx.coroutines.delay
+import java.io.Closeable
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Chooses which runtime answers a question, and escalates only when it has to.
@@ -32,8 +34,16 @@ import kotlinx.coroutines.delay
  */
 class AiRuntimeRouter(
     private val providers: List<AiProvider>,
-    private val listener: RoutingListener = RoutingListener.NoOp,
+    listener: RoutingListener = RoutingListener.NoOp,
 ) {
+
+    private val listeners = CopyOnWriteArrayList<RoutingListener>().apply { add(listener) }
+
+    /** Registers an observer for the lifetime of one caller, such as a task run. */
+    fun addListener(listener: RoutingListener): Closeable {
+        listeners += listener
+        return Closeable { listeners -= listener }
+    }
 
     /** Ordered cheapest-first; the order of [RuntimeTier] is the routing order. */
     private val orderedTiers = listOf(
@@ -72,7 +82,7 @@ class AiRuntimeRouter(
                 continue
             }
 
-            listener.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason())
+            listeners.forEach { it.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason()) }
 
             val result = provider.structured(
                 StructuredRequest(
@@ -115,7 +125,7 @@ class AiRuntimeRouter(
             )
 
             if (settled.meets(requirements.minConfidence)) {
-                listener.onResolved(label, tier, settled.confidence, escalated = previousTier != null)
+                listeners.forEach { it.onResolved(label, tier, settled.confidence, escalated = previousTier != null) }
                 return RoutedResult(settled, attempts)
             }
 
@@ -128,7 +138,7 @@ class AiRuntimeRouter(
         }
 
         Logx.d("No runtime satisfied [$label]; attempts=${attempts.size}")
-        listener.onExhausted(label, attempts)
+        listeners.forEach { it.onExhausted(label, attempts) }
         return RoutedResult(
             InferenceResult(
                 value = null,
@@ -165,7 +175,7 @@ class AiRuntimeRouter(
                 continue
             }
 
-            listener.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason())
+            listeners.forEach { it.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason()) }
             val result = provider.complete(
                 TextRequest(
                     prompt = prompt,
@@ -177,7 +187,7 @@ class AiRuntimeRouter(
             )
             attempts += RoutingAttempt(tier, provider.id, false, result.confidence, result.error?.kind, result.latencyMs)
             if (result.isSuccess) {
-                listener.onResolved(label, tier, result.confidence, escalated = previousTier != null)
+                listeners.forEach { it.onResolved(label, tier, result.confidence, escalated = previousTier != null) }
                 return RoutedResult(result, attempts)
             }
             lastError = result.error
@@ -185,7 +195,7 @@ class AiRuntimeRouter(
             previousTier = tier
         }
 
-        listener.onExhausted(label, attempts)
+        listeners.forEach { it.onExhausted(label, attempts) }
         return RoutedResult(
             InferenceResult(
                 value = null,
@@ -218,13 +228,13 @@ class AiRuntimeRouter(
                 attempts += RoutingAttempt(tier, provider.id, skipped = true, reason = skip)
                 continue
             }
-            listener.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason())
+            listeners.forEach { it.onTierSelected(label, tier, previousTier, lastError?.kind?.toEscalationReason()) }
             val result = provider.describe(
                 VisionRequest(image = image, prompt = prompt, systemInstruction = systemInstruction, label = label),
             )
             attempts += RoutingAttempt(tier, provider.id, false, result.confidence, result.error?.kind, result.latencyMs)
             if (result.isSuccess) {
-                listener.onResolved(label, tier, result.confidence, escalated = previousTier != null)
+                listeners.forEach { it.onResolved(label, tier, result.confidence, escalated = previousTier != null) }
                 return RoutedResult(result, attempts)
             }
             lastError = result.error
@@ -232,7 +242,7 @@ class AiRuntimeRouter(
             previousTier = tier
         }
 
-        listener.onExhausted(label, attempts)
+        listeners.forEach { it.onExhausted(label, attempts) }
         return RoutedResult(
             InferenceResult(
                 value = null,

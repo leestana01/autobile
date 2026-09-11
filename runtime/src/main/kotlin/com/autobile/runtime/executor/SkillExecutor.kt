@@ -221,15 +221,6 @@ class SkillExecutor(
         )
 
         val status = if (goalOutcome.passed) OutcomeStatus.SUCCESS else OutcomeStatus.PARTIAL
-        observer.onEvent(
-            event(
-                task.id,
-                if (status == OutcomeStatus.SUCCESS) ExecutionEventType.TASK_COMPLETED else ExecutionEventType.TASK_FAILED,
-                message = goalOutcome.reason,
-                success = goalOutcome.passed,
-            ),
-        )
-
         return TaskOutcome(
             taskId = task.id,
             status = status,

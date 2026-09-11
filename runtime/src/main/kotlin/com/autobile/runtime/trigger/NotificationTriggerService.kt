@@ -112,7 +112,7 @@ class NotificationTriggerService : NotificationListenerService() {
         condition: String,
         payload: NotificationPayload,
     ): Pair<Boolean, Map<String, String>>? {
-        val router = router ?: return null
+        val router = router ?: AutobileRuntime.services?.aiRouter ?: return null
         val routed = router.infer(
             label = "notification-match",
             schema = AiTasks.notificationMatch,

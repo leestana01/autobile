@@ -64,8 +64,7 @@ class CapabilityDetector(
             apiLevel = Build.VERSION.SDK_INT,
             accessibilityConnected = accessibilityConnected,
             gestureDispatchSupported = accessibilityConnected,
-            screenshotSupported = accessibilityConnected &&
-                Build.VERSION.SDK_INT >= AutobileAccessibilityService.MIN_SCREENSHOT_API,
+            screenshotSupported = accessibilityConnected,
             notificationAccessGranted = isNotificationAccessGranted(),
             overlayGranted = Settings.canDrawOverlays(context),
             deviceAi = deviceAiCapability,
@@ -157,9 +156,6 @@ class CapabilityDetector(
                     },
                 ),
             )
-        }
-        if (Build.VERSION.SDK_INT < AutobileAccessibilityService.MIN_SCREENSHOT_API) {
-            add(RuntimeRestriction(RestrictionKind.SCREENSHOT_UNSUPPORTED, "This Android version cannot capture the screen"))
         }
         if (!isNotificationAccessGranted()) {
             add(
