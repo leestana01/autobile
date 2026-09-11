@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      The visual design lives in Compose. This theme only needs to hand the activity a
+      bar-free window with the right initial background, so the app does not flash a
+      different colour before the first frame is drawn.
+
+      System bar colours are deliberately absent: recent Android versions lay apps out
+      edge to edge and ignore those attributes, so the bars are handled through window
+      insets in Compose instead.
+    -->
     <style name="Theme.Autobile" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#F7F7F2</item>
-        <item name="android:navigationBarColor">#F7F7F2</item>
-        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@color/window_background</item>
     </style>
 </resources>

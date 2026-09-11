@@ -257,7 +257,17 @@ class SkillExecutor(
         // Steps that do not act on an element bypass resolution entirely.
         step.action.asContextFreeAction()?.let { action ->
             val actionResult = performContextFree(action, context)
-            val validated = validateAfter(step, snapshot, null, localOnly, observer, task, index)
+            // Observe again before validating. These actions exist precisely to change
+            // which screen is in front, so checking the snapshot taken before them can
+            // never see what they did: a launch step would be judged against the screen
+            // the user was on when it started.
+            val afterAction = if (actionResult.succeeded) {
+                (perception.observeStable(step.validation.timeoutMs) as? PerceptionResult.Success)
+                    ?.snapshot ?: snapshot
+            } else {
+                snapshot
+            }
+            val validated = validateAfter(step, afterAction, null, localOnly, observer, task, index)
             return StepOutcome(
                 result = StepResult(
                     stepId = step.id,

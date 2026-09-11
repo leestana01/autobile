@@ -156,6 +156,7 @@ class FakeScreen(
 
     override fun pressBack(): ActionResult {
         backPresses++
+        advance()
         return ActionResult.Performed("back")
     }
 

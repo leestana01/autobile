@@ -12,3 +12,7 @@ captures/
 
 # Local product specification (not distributed)
 SPEC.md
+
+# Release signing material is supplied from the environment, never committed.
+*.jks
+*.keystore

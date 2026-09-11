@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.net.toUri
@@ -111,6 +112,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Recent Android versions lay every app out edge to edge whether or not it asks.
+        // Declaring it explicitly is what makes the system bar insets reach Compose, so
+        // the first screen is not drawn underneath the status bar.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             AutobileTheme {
@@ -761,7 +766,18 @@ private fun CapabilityRows(profile: DeviceCapabilityProfile) {
 private fun CapabilityRow(label: String, available: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label)
-        Text(if (available) "Available" else "Not available", color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+        // An unavailable capability is muted rather than coloured like an available one.
+        // This is the first screen anyone sees, and a green "Not available" reads as
+        // approval at a glance, which is the opposite of what it means.
+        Text(
+            text = if (available) "Available" else "Not available",
+            color = if (available) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            fontWeight = if (available) FontWeight.SemiBold else FontWeight.Normal,
+        )
     }
 }
 
