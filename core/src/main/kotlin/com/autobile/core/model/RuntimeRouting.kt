@@ -116,6 +116,28 @@ data class InferenceError(
     /** Whether retrying at a higher tier could plausibly succeed where this attempt failed. */
     val escalatable: Boolean
         get() = kind != InferenceErrorKind.CANCELLED && kind != InferenceErrorKind.POLICY_BLOCKED
+
+    /**
+     * Whether the request failed because nothing was available to answer it, as opposed
+     * to a runtime having considered it and come back unconvinced.
+     *
+     * The difference decides whether waiting is worthwhile: an offline device or an
+     * exhausted quota resolves itself, while a model that examined the screen and found
+     * no match will keep finding no match.
+     */
+    val meansNoRuntimeAvailable: Boolean
+        get() = kind in NO_RUNTIME_KINDS
+
+    private companion object {
+        val NO_RUNTIME_KINDS = setOf(
+            InferenceErrorKind.UNAVAILABLE,
+            InferenceErrorKind.NETWORK,
+            InferenceErrorKind.TIMEOUT,
+            InferenceErrorKind.BUSY,
+            InferenceErrorKind.QUOTA_EXCEEDED,
+            InferenceErrorKind.POLICY_BLOCKED,
+        )
+    }
 }
 
 enum class InferenceErrorKind {

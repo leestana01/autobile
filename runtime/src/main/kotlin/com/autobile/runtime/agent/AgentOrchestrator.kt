@@ -221,8 +221,16 @@ class AgentOrchestrator(
         }
 
         val finishedAt = time.nowMillis()
+        // A run that stalled for want of a runtime is reported as waiting rather than
+        // deferred, so the user is told the phone is missing the ability to decide
+        // rather than that the automation was merely postponed.
+        val deferredState = if (router.hasRuntimeFor(InferenceRequirements())) {
+            TaskState.DEFERRED
+        } else {
+            TaskState.WAITING_FOR_REASONING
+        }
         task = task.copy(
-            state = outcome.status.toTaskState(),
+            state = outcome.status.toTaskState(deferredState),
             finishedAt = finishedAt,
             cloudCallCount = outcome.cloudCalls,
             deviceAiCallCount = outcome.deviceAiCalls,
@@ -538,10 +546,10 @@ sealed interface CommandResolution {
     data class NotUnderstood(val reason: String) : CommandResolution
 }
 
-private fun OutcomeStatus.toTaskState(): TaskState = when (this) {
+private fun OutcomeStatus.toTaskState(deferredState: TaskState): TaskState = when (this) {
     OutcomeStatus.SUCCESS -> TaskState.COMPLETED
     OutcomeStatus.PARTIAL, OutcomeStatus.FAILED -> TaskState.FAILED
-    OutcomeStatus.DEFERRED -> TaskState.DEFERRED
+    OutcomeStatus.DEFERRED -> deferredState
     OutcomeStatus.CANCELLED -> TaskState.CANCELLED
     OutcomeStatus.BLOCKED -> TaskState.BLOCKED
 }

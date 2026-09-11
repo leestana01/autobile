@@ -188,6 +188,32 @@ class ExecutionResolverTest {
     }
 
     @Test
+    fun `an unavailable runtime is reported as needing reasoning, not as a missing element`() = runTest {
+        // Nothing could judge the screen. Saying the element is absent would mark a
+        // working automation as broken over a condition that resolves on its own.
+        val (resolver, _) = resolver(ScriptedProvider(available = false))
+        val snapshot = screen(nodes = arrayOf(node("a", text = "Reports")))
+
+        val resolution = resolver.resolve(TargetSemantics(intentLabel = "Daily Sales"), snapshot)
+
+        assertThat(resolution).isInstanceOf(Resolution.NeedsReasoning::class.java)
+    }
+
+    @Test
+    fun `a model that examined the screen and found nothing is reported as not found`() = runTest {
+        val provider = ScriptedProvider().answerWith(
+            "element-match",
+            ElementMatch(index = -1, confidence = 0.9f, reason = "not on this screen"),
+        )
+        val (resolver, _) = resolver(provider)
+        val snapshot = screen(nodes = arrayOf(node("a", text = "Reports")))
+
+        val resolution = resolver.resolve(TargetSemantics(intentLabel = "Daily Sales"), snapshot)
+
+        assertThat(resolution).isInstanceOf(Resolution.NotFound::class.java)
+    }
+
+    @Test
     fun `an empty screen resolves to not found`() = runTest {
         val (resolver, _) = resolver()
         val resolution = resolver.resolve(TargetSemantics(intentLabel = "Send"), screen())
