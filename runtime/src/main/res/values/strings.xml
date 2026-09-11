@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Autobile needs to see the screen to learn the tasks you show it, and to control the screen to repeat them for you. Screen content stays on your device unless you turn on cloud assistance.</string>
+    <string name="accessibility_service_summary">Learn and repeat tasks you show it</string>
+</resources>
