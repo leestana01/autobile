@@ -2,6 +2,8 @@ package com.autobile.runtime.agent
 
 import com.autobile.ai.context.ContextMinimizer
 import com.autobile.ai.router.AiRuntimeRouter
+import com.autobile.ai.router.RoutingAttempt
+import com.autobile.ai.router.RoutingListener
 import com.autobile.ai.task.AiTasks
 import com.autobile.core.common.Ids
 import com.autobile.core.common.Logx
@@ -12,12 +14,14 @@ import com.autobile.core.data.MetricsStore
 import com.autobile.core.data.SettingsStore
 import com.autobile.core.data.SkillStore
 import com.autobile.core.model.AgentTask
+import com.autobile.core.model.EscalationReason
 import com.autobile.core.model.ExecutionEvent
 import com.autobile.core.model.ExecutionEventType
 import com.autobile.core.model.InferenceRequirements
 import com.autobile.core.model.OutcomeStatus
 import com.autobile.core.model.PerceptionResult
 import com.autobile.core.model.RiskDecision
+import com.autobile.core.model.RuntimeTier
 import com.autobile.core.model.SemanticSkill
 import com.autobile.core.model.SkillConfidence
 import com.autobile.core.model.SkillStep
@@ -30,7 +34,7 @@ import com.autobile.runtime.capability.CapabilityDetector
 import com.autobile.runtime.executor.SkillExecutor
 import com.autobile.runtime.executor.ExecutionObserver
 import com.autobile.runtime.executor.describeForUser
-import com.autobile.runtime.perception.PerceptionEngine
+import com.autobile.runtime.perception.ScreenObserver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +43,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.Collections
 
 /**
  * Coordinates a single run from request to recorded outcome.
@@ -53,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class AgentOrchestrator(
     private val executor: SkillExecutor,
-    private val perception: PerceptionEngine,
+    private val perception: ScreenObserver,
     private val router: AiRuntimeRouter,
     private val skillStore: SkillStore,
     private val historyStore: HistoryStore,
@@ -108,6 +114,7 @@ class AgentOrchestrator(
                     deferredUntil = time.nowMillis() + executability.retryDelayMillis(state),
                 )
                 historyStore.saveTask(task)
+                historyStore.appendEvent(task.lifecycleEvent(ExecutionEventType.TASK_CREATED, "Task created", time.nowMillis()))
                 historyStore.appendEvent(
                     ExecutionEvent(
                         id = Ids.event(),
@@ -135,6 +142,7 @@ class AgentOrchestrator(
         val startedAt = time.nowMillis()
         var task = newTask(skill, origin, triggerPayload).copy(state = TaskState.RUNNING, startedAt = startedAt)
         historyStore.saveTask(task)
+        historyStore.appendEvent(task.lifecycleEvent(ExecutionEventType.TASK_CREATED, "Task created", time.nowMillis()))
         metrics.increment(Metric.TASKS_STARTED)
         metrics.increment(Metric.SKILLS_REPEATED)
 
@@ -147,6 +155,36 @@ class AgentOrchestrator(
         )
 
         val observer = RecordingObserver(task.id, skill, confirmation)
+        val routingEvents = Collections.synchronizedList(mutableListOf<ExecutionEvent>())
+        val resolvedCloudCalls = AtomicInteger(0)
+        val registration = router.addListener(object : RoutingListener {
+            override fun onTierSelected(
+                label: String,
+                tier: RuntimeTier,
+                escalatedFrom: RuntimeTier?,
+                reason: EscalationReason?,
+            ) {
+                if (label !in EXECUTION_ROUTING_LABELS) return
+                val message = buildString {
+                    append(label.replace('-', ' ')).append(" via ").append(tier.displayName)
+                    reason?.let { append(" · ").append(it.displayName) }
+                }
+                routingEvents += ExecutionEvent(
+                    id = Ids.event(),
+                    taskId = task.id,
+                    timestamp = time.nowMillis(),
+                    type = ExecutionEventType.AI_RUNTIME_SELECTED,
+                    message = Logx.redact(message),
+                    tier = tier,
+                )
+            }
+
+            override fun onResolved(label: String, tier: RuntimeTier, confidence: Float, escalated: Boolean) {
+                if (label in EXECUTION_ROUTING_LABELS && tier.isCloud) resolvedCloudCalls.incrementAndGet()
+            }
+
+            override fun onExhausted(label: String, attempts: List<RoutingAttempt>) = Unit
+        })
         val outcome = try {
             executor.execute(
                 skill = skill,
@@ -167,6 +205,19 @@ class AgentOrchestrator(
                 deviceAiCalls = 0,
                 message = e.message ?: "The automation stopped unexpectedly",
             )
+        } finally {
+            registration.close()
+        }
+
+        val capturedRoutingEvents = synchronized(routingEvents) { routingEvents.toList() }
+        capturedRoutingEvents.sortedBy { it.timestamp }.forEach { event ->
+            historyStore.appendEvent(event)
+            metrics.increment(Metric.AI_DECISIONS_TOTAL)
+            if (event.tier?.isLocal == true) metrics.increment(Metric.AI_DECISIONS_ON_DEVICE)
+            if (event.tier?.isCloud == true) metrics.increment(Metric.CLOUD_ESCALATIONS)
+        }
+        if (resolvedCloudCalls.get() > 0) {
+            metrics.increment(Metric.CLOUD_ESCALATIONS_RESOLVED, resolvedCloudCalls.get().toLong())
         }
 
         val finishedAt = time.nowMillis()
@@ -180,6 +231,19 @@ class AgentOrchestrator(
         )
         historyStore.saveTask(task)
         historyStore.saveOutcome(outcome)
+        historyStore.appendEvent(
+            task.lifecycleEvent(
+                type = when (outcome.status) {
+                    OutcomeStatus.SUCCESS -> ExecutionEventType.TASK_COMPLETED
+                    OutcomeStatus.CANCELLED -> ExecutionEventType.TASK_CANCELLED
+                    OutcomeStatus.DEFERRED -> ExecutionEventType.TASK_DEFERRED
+                    else -> ExecutionEventType.TASK_FAILED
+                },
+                message = outcome.message.ifBlank { outcome.status.name.lowercase().replace('_', ' ') },
+                timestamp = finishedAt,
+                success = outcome.status == OutcomeStatus.SUCCESS,
+            ),
+        )
         recordMetrics(task, outcome, origin, startedAt, finishedAt)
         updateConfidence(skill, outcome)
 
@@ -333,13 +397,10 @@ class AgentOrchestrator(
         private val confirmation: ConfirmationMode,
     ) : ExecutionObserver {
 
+        // Routing events are recorded by the router listener, which also owns the
+        // routing metrics, so this only has to persist what the executor reports.
         override suspend fun onEvent(event: ExecutionEvent) {
             historyStore.appendEvent(event)
-            if (event.type == ExecutionEventType.AI_RUNTIME_SELECTED) {
-                metrics.increment(Metric.AI_DECISIONS_TOTAL)
-                if (event.tier?.isLocal == true) metrics.increment(Metric.AI_DECISIONS_ON_DEVICE)
-                if (event.tier?.isCloud == true) metrics.increment(Metric.CLOUD_ESCALATIONS)
-            }
         }
 
         override suspend fun onStepStarted(index: Int, step: SkillStep) {
@@ -387,8 +448,29 @@ class AgentOrchestrator(
         const val COMMAND_CONFIDENCE_THRESHOLD = 0.5f
         const val GOAL_SIMILARITY_THRESHOLD = 0.55f
         const val MIN_NAME_MATCH = 4
+        val EXECUTION_ROUTING_LABELS = setOf(
+            "element-match",
+            "element-match-visual",
+            "value-extraction",
+            "outcome-check",
+            "recovery-proposal",
+        )
     }
 }
+
+private fun AgentTask.lifecycleEvent(
+    type: ExecutionEventType,
+    message: String,
+    timestamp: Long,
+    success: Boolean? = null,
+) = ExecutionEvent(
+    id = Ids.event(),
+    taskId = id,
+    timestamp = timestamp,
+    type = type,
+    message = Logx.redact(message),
+    success = success,
+)
 
 /** What the agent is doing, for the status banner and the touch indicator. */
 sealed interface AgentActivity {

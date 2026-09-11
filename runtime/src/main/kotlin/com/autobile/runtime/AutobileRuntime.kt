@@ -1,5 +1,6 @@
 package com.autobile.runtime
 
+import com.autobile.ai.router.AiRuntimeRouter
 import com.autobile.core.data.HistoryStore
 import com.autobile.core.data.SettingsStore
 import com.autobile.core.data.SkillStore
@@ -16,6 +17,7 @@ import com.autobile.runtime.trigger.TriggerScheduler
  * read it.
  */
 interface AutobileServices {
+    val aiRouter: AiRuntimeRouter
     val orchestrator: AgentOrchestrator
     val skillStore: SkillStore
     val historyStore: HistoryStore

@@ -18,7 +18,6 @@ import com.autobile.core.model.NetworkState
 import com.autobile.core.model.RestrictionKind
 import com.autobile.core.model.RuntimeRestriction
 import com.autobile.runtime.accessibility.AccessibilityBridge
-import com.autobile.runtime.accessibility.AutobileAccessibilityService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +47,7 @@ class CapabilityDetector(
 
     suspend fun detect(): DeviceCapabilityProfile {
         val accessibilityConnected = AccessibilityBridge.connected.value
+        val granted = AccessibilityBridge.require()?.grantedCapabilities()
         val enabledInSettings = AccessibilityBridge.isEnabledInSettings(context)
         val deviceAiCapability = probeDeviceAi()
         val network = detectNetwork()
@@ -63,9 +63,8 @@ class CapabilityDetector(
         val profile = DeviceCapabilityProfile(
             apiLevel = Build.VERSION.SDK_INT,
             accessibilityConnected = accessibilityConnected,
-            gestureDispatchSupported = accessibilityConnected,
-            screenshotSupported = accessibilityConnected &&
-                Build.VERSION.SDK_INT >= AutobileAccessibilityService.MIN_SCREENSHOT_API,
+            gestureDispatchSupported = granted?.canPerformGestures == true,
+            screenshotSupported = granted?.canTakeScreenshot == true,
             notificationAccessGranted = isNotificationAccessGranted(),
             overlayGranted = Settings.canDrawOverlays(context),
             deviceAi = deviceAiCapability,
@@ -76,6 +75,7 @@ class CapabilityDetector(
             restrictions = buildRestrictions(
                 accessibilityConnected = accessibilityConnected,
                 enabledInSettings = enabledInSettings,
+                screenshotGranted = granted?.canTakeScreenshot != false,
                 deviceAi = deviceAiCapability,
                 network = network,
             ),
@@ -143,6 +143,7 @@ class CapabilityDetector(
     private fun buildRestrictions(
         accessibilityConnected: Boolean,
         enabledInSettings: Boolean,
+        screenshotGranted: Boolean,
         deviceAi: DeviceAiCapability,
         network: NetworkState,
     ): List<RuntimeRestriction> = buildList {
@@ -158,8 +159,13 @@ class CapabilityDetector(
                 ),
             )
         }
-        if (Build.VERSION.SDK_INT < AutobileAccessibilityService.MIN_SCREENSHOT_API) {
-            add(RuntimeRestriction(RestrictionKind.SCREENSHOT_UNSUPPORTED, "This Android version cannot capture the screen"))
+        if (accessibilityConnected && !screenshotGranted) {
+            add(
+                RuntimeRestriction(
+                    RestrictionKind.SCREENSHOT_UNSUPPORTED,
+                    "This device did not grant screen capture, so steps that need to see the screen will be skipped",
+                ),
+            )
         }
         if (!isNotificationAccessGranted()) {
             add(

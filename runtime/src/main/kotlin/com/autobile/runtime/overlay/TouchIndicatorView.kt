@@ -18,6 +18,7 @@ import com.autobile.core.model.Bounds
 class TouchIndicatorView(context: Context) : View(context) {
 
     private var target: RectF? = null
+    private val glowBounds = RectF()
     private var pulse = 0f
     private var animator: ValueAnimator? = null
 
@@ -70,13 +71,14 @@ class TouchIndicatorView(context: Context) : View(context) {
 
         val expansion = PULSE_EXPANSION_PX * pulse
         glowPaint.alpha = ((1f - pulse) * MAX_ALPHA).toInt().coerceIn(0, MAX_ALPHA)
+        glowBounds.set(
+            rect.left - expansion,
+            rect.top - expansion,
+            rect.right + expansion,
+            rect.bottom + expansion,
+        )
         canvas.drawRoundRect(
-            RectF(
-                rect.left - expansion,
-                rect.top - expansion,
-                rect.right + expansion,
-                rect.bottom + expansion,
-            ),
+            glowBounds,
             CORNER_RADIUS_PX,
             CORNER_RADIUS_PX,
             glowPaint,
@@ -98,6 +100,6 @@ class TouchIndicatorView(context: Context) : View(context) {
         const val CORNER_RADIUS_PX = 16f
         const val PULSE_EXPANSION_PX = 22f
         const val MAX_ALPHA = 255
-        val ACCENT_COLOR = Color.parseColor("#4F7CFF")
+        const val ACCENT_COLOR = 0xFF4F7CFF.toInt()
     }
 }

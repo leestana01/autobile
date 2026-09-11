@@ -19,15 +19,9 @@ import kotlinx.coroutines.delay
 class PerceptionEngine(
     private val context: Context,
     private val treeReader: UiTreeReader = UiTreeReader(),
-) {
+) : ScreenObserver {
 
-    /**
-     * Reads the current screen.
-     *
-     * @param settleMs time to let the UI finish animating first. Reading mid-transition
-     *   produces a snapshot of a screen that no longer exists a moment later.
-     */
-    suspend fun observe(settleMs: Long = DEFAULT_SETTLE_MS): PerceptionResult {
+    override suspend fun observe(settleMs: Long): PerceptionResult {
         val service = AccessibilityBridge.require()
             ?: return PerceptionResult.Unavailable("Accessibility access is not granted")
 
@@ -46,16 +40,7 @@ class PerceptionEngine(
         return PerceptionResult.Success(snapshot)
     }
 
-    /**
-     * Reads the screen and waits until it stops changing, or until [timeoutMs] elapses.
-     *
-     * Used after an action, where the useful moment is when the transition has finished
-     * rather than a fixed delay that is either too short or wasteful.
-     */
-    suspend fun observeStable(
-        timeoutMs: Long = DEFAULT_STABILITY_TIMEOUT_MS,
-        settleMs: Long = DEFAULT_SETTLE_MS,
-    ): PerceptionResult {
+    override suspend fun observeStable(timeoutMs: Long, settleMs: Long): PerceptionResult {
         val deadline = System.currentTimeMillis() + timeoutMs
         var previous: ScreenSnapshot? = null
 
@@ -74,13 +59,7 @@ class PerceptionEngine(
             ?: PerceptionResult.Unavailable("Screen did not settle")
     }
 
-    /**
-     * Captures pixels.
-     *
-     * Separate from [observe] so that taking a screenshot is always a deliberate act by
-     * the caller rather than something that happens implicitly on every observation.
-     */
-    suspend fun captureScreenshot(): ScreenshotCapture {
+    override suspend fun captureScreenshot(): ScreenshotCapture {
         val service = AccessibilityBridge.require()
             ?: return ScreenshotCapture.Unavailable("Accessibility access is not granted")
 
@@ -101,8 +80,6 @@ class PerceptionEngine(
     }
 
     private companion object {
-        const val DEFAULT_SETTLE_MS = 250L
-        const val DEFAULT_STABILITY_TIMEOUT_MS = 4_000L
         const val SCREENSHOT_ATTEMPTS = 3
         const val THROTTLE_BACKOFF_MS = 400L
     }

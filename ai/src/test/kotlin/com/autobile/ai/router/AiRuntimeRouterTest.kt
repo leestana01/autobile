@@ -14,6 +14,7 @@ import com.autobile.core.model.RuntimeTier
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Routing decides how much of a user's screen leaves their device and how much battery
@@ -77,6 +78,34 @@ class AiRuntimeRouterTest {
         override fun onExhausted(label: String, attempts: List<RoutingAttempt>) {
             exhausted = true
         }
+    }
+
+    @Test
+    fun `temporary listeners receive decisions only while registered`() = runTest {
+        val router = AiRuntimeRouter(
+            listOf(FakeProvider(RuntimeTier.DEVICE_AI) { success(RuntimeTier.DEVICE_AI) }),
+        )
+        val selections = AtomicInteger(0)
+        val listener = object : RoutingListener {
+            override fun onTierSelected(
+                label: String,
+                tier: RuntimeTier,
+                escalatedFrom: RuntimeTier?,
+                reason: EscalationReason?,
+            ) {
+                selections.incrementAndGet()
+            }
+
+            override fun onResolved(label: String, tier: RuntimeTier, confidence: Float, escalated: Boolean) = Unit
+            override fun onExhausted(label: String, attempts: List<RoutingAttempt>) = Unit
+        }
+        val registration = router.addListener(listener)
+
+        router.infer("first", schema, "prompt")
+        registration.close()
+        router.infer("second", schema, "prompt")
+
+        assertThat(selections.get()).isEqualTo(1)
     }
 
     @Test

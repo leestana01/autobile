@@ -13,7 +13,7 @@ import com.autobile.core.model.TraceEvent
 import com.autobile.core.model.UiNode
 import com.autobile.runtime.accessibility.AccessibilityBridge
 import com.autobile.runtime.accessibility.ObservedEvent
-import com.autobile.runtime.perception.PerceptionEngine
+import com.autobile.runtime.perception.ScreenObserver
 import android.view.accessibility.AccessibilityEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,7 +36,7 @@ import kotlinx.coroutines.sync.withLock
  * visible, not a guess made in the moment.
  */
 class DemonstrationRecorder(
-    private val perception: PerceptionEngine,
+    private val perception: ScreenObserver,
     private val scope: CoroutineScope,
     private val time: TimeSource = TimeSource.System,
 ) {

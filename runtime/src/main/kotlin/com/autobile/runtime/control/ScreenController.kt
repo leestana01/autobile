@@ -22,7 +22,7 @@ import kotlinx.coroutines.delay
  * scrolling container — none of which a coordinate tap survives. Coordinates are the
  * fallback for elements that expose nothing.
  */
-class ScreenController(private val context: Context) {
+class ScreenController(private val context: Context) : ScreenActuator {
 
     /**
      * Clicks [node].
@@ -30,7 +30,7 @@ class ScreenController(private val context: Context) {
      * Falls back through the node's clickable ancestors before resorting to a tap: list
      * rows commonly expose their label on a non-clickable child of the clickable row.
      */
-    suspend fun click(node: UiNode): ActionResult {
+    override suspend fun click(node: UiNode): ActionResult {
         val target = findLiveNode(node) ?: return ActionResult.Failed("Element is no longer on screen")
         clickableSelfOrAncestor(target)?.let { clickable ->
             if (clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
@@ -40,7 +40,7 @@ class ScreenController(private val context: Context) {
         return tapAt(node.bounds)
     }
 
-    suspend fun longPress(node: UiNode, durationMs: Long): ActionResult {
+    override suspend fun longPress(node: UiNode, durationMs: Long): ActionResult {
         val target = findLiveNode(node)
         if (target != null && target.isLongClickable &&
             target.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
@@ -57,7 +57,7 @@ class ScreenController(private val context: Context) {
     }
 
     /** Taps a point. Used only where no node action is available. */
-    suspend fun tapAt(bounds: Bounds): ActionResult {
+    override suspend fun tapAt(bounds: Bounds): ActionResult {
         if (bounds.isEmpty) return ActionResult.Failed("Element has no measurable bounds")
         return gesture(
             buildPath(bounds.centerX.toFloat(), bounds.centerY.toFloat()),
@@ -66,7 +66,7 @@ class ScreenController(private val context: Context) {
         )
     }
 
-    suspend fun tapRatio(xRatio: Float, yRatio: Float): ActionResult {
+    override suspend fun tapRatio(xRatio: Float, yRatio: Float): ActionResult {
         val metrics = context.resources.displayMetrics
         val x = (metrics.widthPixels * xRatio.coerceIn(0f, 1f))
         val y = (metrics.heightPixels * yRatio.coerceIn(0f, 1f))
@@ -79,7 +79,7 @@ class ScreenController(private val context: Context) {
      * The travel is inset from the edges so the gesture does not land on the system
      * back or navigation areas, where it would be consumed instead of delivered.
      */
-    suspend fun swipe(direction: Direction, distanceRatio: Float, durationMs: Long): ActionResult {
+    override suspend fun swipe(direction: Direction, distanceRatio: Float, durationMs: Long): ActionResult {
         val metrics = context.resources.displayMetrics
         val width = metrics.widthPixels.toFloat()
         val height = metrics.heightPixels.toFloat()
@@ -115,7 +115,7 @@ class ScreenController(private val context: Context) {
      * happens to be under the finger, which on a screen with nested scrollers is often
      * the wrong thing.
      */
-    suspend fun scroll(container: UiNode?, direction: Direction): ActionResult {
+    override suspend fun scroll(container: UiNode?, direction: Direction): ActionResult {
         if (container != null) {
             val live = findLiveNode(container)
             if (live != null && live.isScrollable) {
@@ -143,7 +143,7 @@ class ScreenController(private val context: Context) {
      * it does not depend on the soft keyboard being visible, and it cannot interleave
      * with the app's own input handling.
      */
-    suspend fun inputText(node: UiNode, value: String, clearExisting: Boolean): ActionResult {
+    override suspend fun inputText(node: UiNode, value: String, clearExisting: Boolean): ActionResult {
         val target = findLiveNode(node) ?: return ActionResult.Failed("Text field is no longer on screen")
         val editable = editableSelfOrAncestor(target)
             ?: return ActionResult.Failed("Target does not accept text input")
@@ -159,18 +159,18 @@ class ScreenController(private val context: Context) {
         return ActionResult.Failed("Text could not be entered")
     }
 
-    fun pressBack(): ActionResult {
+    override fun pressBack(): ActionResult {
         val service = AccessibilityBridge.require() ?: return ActionResult.Failed(NO_SERVICE)
         return if (service.pressBack()) ActionResult.Performed("back") else ActionResult.Failed("Back was rejected")
     }
 
-    fun pressHome(): ActionResult {
+    override fun pressHome(): ActionResult {
         val service = AccessibilityBridge.require() ?: return ActionResult.Failed(NO_SERVICE)
         return if (service.pressHome()) ActionResult.Performed("home") else ActionResult.Failed("Home was rejected")
     }
 
     /** Launches an app by package name, optionally at a specific activity. */
-    fun launchApp(packageName: String, activity: String? = null): ActionResult {
+    override fun launchApp(packageName: String, activity: String?): ActionResult {
         val intent = if (activity != null) {
             Intent().apply {
                 setClassName(packageName, activity)

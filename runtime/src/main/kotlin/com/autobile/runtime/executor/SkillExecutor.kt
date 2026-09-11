@@ -27,8 +27,8 @@ import com.autobile.core.model.ValidationMode
 import com.autobile.core.model.ValidationOutcome
 import com.autobile.core.model.ValueType
 import com.autobile.runtime.control.ActionResult
-import com.autobile.runtime.control.ScreenController
-import com.autobile.runtime.perception.PerceptionEngine
+import com.autobile.runtime.control.ScreenActuator
+import com.autobile.runtime.perception.ScreenObserver
 import com.autobile.runtime.perception.ScreenshotCapture
 import com.autobile.runtime.recovery.RecoveryMove
 import com.autobile.runtime.recovery.SelfHealingEngine
@@ -51,8 +51,8 @@ import kotlinx.coroutines.delay
  * doing while it does it.
  */
 class SkillExecutor(
-    private val perception: PerceptionEngine,
-    private val controller: ScreenController,
+    private val perception: ScreenObserver,
+    private val controller: ScreenActuator,
     private val resolver: ExecutionResolver,
     private val validation: ValidationEngine,
     private val healing: SelfHealingEngine,
@@ -117,7 +117,7 @@ class SkillExecutor(
                     val message = "This screen is protected and cannot be read"
                     results += failedStep(step, index, startedAt, message, ValidationMode.NONE)
                     observer.onEvent(
-                        event(task.id, ExecutionEventType.TASK_FAILED, step.id, index, message, success = false),
+                        event(task.id, ExecutionEventType.STEP_FAILED, step.id, index, message, success = false),
                     )
                     return partial(task, skill, results, cloudCalls, deviceAiCalls, message, OutcomeStatus.BLOCKED)
                 }
@@ -198,7 +198,7 @@ class SkillExecutor(
             if (!outcome.result.success && !step.optional) {
                 val message = outcome.result.message.ifBlank { "Step failed" }
                 observer.onEvent(
-                    event(task.id, ExecutionEventType.TASK_FAILED, step.id, index, message, success = false),
+                    event(task.id, ExecutionEventType.STEP_FAILED, step.id, index, message, success = false),
                 )
                 return partial(task, skill, results, cloudCalls, deviceAiCalls, message, OutcomeStatus.PARTIAL)
             }
@@ -221,15 +221,6 @@ class SkillExecutor(
         )
 
         val status = if (goalOutcome.passed) OutcomeStatus.SUCCESS else OutcomeStatus.PARTIAL
-        observer.onEvent(
-            event(
-                task.id,
-                if (status == OutcomeStatus.SUCCESS) ExecutionEventType.TASK_COMPLETED else ExecutionEventType.TASK_FAILED,
-                message = goalOutcome.reason,
-                success = goalOutcome.passed,
-            ),
-        )
-
         return TaskOutcome(
             taskId = task.id,
             status = status,
