@@ -476,7 +476,7 @@ private fun SkillDetailScreen(state: AppUiState, viewModel: AppViewModel) {
         DetailCard("Runtime requirements", skill.runtimeRequirements.describe())
         DetailCard(
             "Last execution",
-            state.selectedSkillLastTask?.let { "${it.state.name.humanize()} · ${formatTime(it.finishedAt ?: it.createdAt)}" } ?: "Never",
+            state.selectedSkillLastTask?.let { "${it.state.displayName} · ${formatTime(it.finishedAt ?: it.createdAt)}" } ?: "Never",
         )
         DetailCard("Success rate", "${(skill.confidence.successRate * 100).toInt()}% across ${skill.confidence.executionCount} runs")
         SectionTitle("Confidence")
@@ -554,7 +554,7 @@ private fun HistoryScreen(state: AppUiState, viewModel: AppViewModel) {
                         Text(task.goal, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text("${formatTime(task.createdAt)} · ${task.origin.name.humanize()}", style = MaterialTheme.typography.bodySmall)
                     }
-                    Text(task.state.name.humanize(), style = MaterialTheme.typography.labelMedium)
+                    Text(task.state.displayName, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -566,7 +566,7 @@ private fun HistoryDetailScreen(state: AppUiState, viewModel: AppViewModel) {
     val task = state.selectedTask ?: return EmptyCard("Run unavailable", "Its history could not be loaded.")
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(task.goal, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        DetailCard("Result", state.selectedTaskOutcome?.status?.name?.humanize() ?: task.state.name.humanize())
+        DetailCard("Result", state.selectedTaskOutcome?.status?.name?.humanize() ?: task.state.displayName)
         DetailCard("Runtime", "${task.deterministicStepCount} deterministic · ${task.deviceAiCallCount} on-device · ${task.cloudCallCount} cloud")
         task.failureReason?.let { DetailCard("What happened", it) }
         task.skillId?.let { skillId ->
@@ -893,6 +893,7 @@ private fun TaskState.color(): Color = when (this) {
     TaskState.RUNNING -> Color(0xFF1565C0)
     TaskState.FAILED, TaskState.BLOCKED -> Color(0xFFBA1A1A)
     TaskState.CANCELLED -> Color(0xFF8A5D00)
+    TaskState.WAITING_FOR_REASONING, TaskState.DEFERRED -> Color(0xFF8A5D00)
     else -> Color.Gray
 }
 

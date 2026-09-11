@@ -62,7 +62,29 @@ enum class TaskState {
     COMPLETED,
     FAILED,
     CANCELLED,
-    BLOCKED,
+    BLOCKED;
+
+    /**
+     * How this state is described to the user.
+     *
+     * Written out rather than derived from the enum name: "Waiting for reasoning" is
+     * engineering vocabulary, and the person reading it needs to know what their phone
+     * is missing and whether they have to do anything about it.
+     */
+    val displayName: String
+        get() = when (this) {
+            CREATED -> "Queued"
+            PLANNING -> "Working out what to do"
+            AWAITING_CONFIRMATION -> "Waiting for you"
+            RUNNING -> "Running"
+            WAITING_FOR_REASONING -> "Paused until this phone can decide"
+            WAITING_FOR_USER -> "Waiting for you"
+            DEFERRED -> "Postponed"
+            COMPLETED -> "Completed"
+            FAILED -> "Failed"
+            CANCELLED -> "Stopped"
+            BLOCKED -> "Blocked"
+        }
 }
 
 /**

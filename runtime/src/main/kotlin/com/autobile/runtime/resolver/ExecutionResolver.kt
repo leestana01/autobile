@@ -87,7 +87,7 @@ class ExecutionResolver(
         }
 
         if (!allowVision || screenshot == null) {
-            return Resolution.NotFound("No element matches \"${target.intentLabel}\"")
+            return unresolved(routed.result.error, target)
         }
         return resolveVisually(target, snapshot, screenshot, candidates, localOnly)
     }
@@ -136,7 +136,31 @@ class ExecutionResolver(
                 cloudWasDecisive = routed.cloudWasDecisive,
             )
         } else {
-            Resolution.NotFound("No element matches \"${target.intentLabel}\", including visually")
+            unresolved(routed.result.error, target, visually = true)
+        }
+    }
+
+    /**
+     * Separates "the element is not here" from "nothing was available to decide".
+     *
+     * They look identical at the call site and mean opposite things. A model that looked
+     * at the screen and found no match will find no match again, so the step has failed.
+     * An offline device, an exhausted quota or a busy model has not judged anything yet,
+     * and reporting that as a failure would mark a perfectly good automation as broken
+     * for reasons that resolve on their own.
+     */
+    private fun unresolved(
+        error: com.autobile.core.model.InferenceError?,
+        target: TargetSemantics,
+        visually: Boolean = false,
+    ): Resolution {
+        val suffix = if (visually) ", including visually" else ""
+        return if (error?.meansNoRuntimeAvailable == true) {
+            Resolution.NeedsReasoning(
+                "No runtime is available to identify \"${target.intentLabel}\" right now",
+            )
+        } else {
+            Resolution.NotFound("No element matches \"${target.intentLabel}\"$suffix")
         }
     }
 

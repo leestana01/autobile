@@ -2,6 +2,7 @@ package com.autobile.runtime.executor
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.autobile.ai.task.ElementMatch
 import com.autobile.ai.task.ExtractedValue
 import com.autobile.ai.task.OutcomeCheck
 import com.autobile.ai.task.RecoveryAction
@@ -218,17 +219,6 @@ class SkillExecutorTest {
     }
 
     @Test
-    fun `an unreachable target reports partial rather than success`() = runTest {
-        val screen = FakeScreen(screen(nodes = arrayOf(node("a", text = "Inbox"))))
-        val skill = skill(listOf(clickStep(resourceId = null)))
-
-        val outcome = executor(screen, ScriptedProvider()).execute(skill, task(skill), Recorder())
-
-        assertThat(outcome.status).isEqualTo(OutcomeStatus.PARTIAL)
-        assertThat(outcome.goalValidated).isFalse()
-    }
-
-    @Test
     fun `a declined confirmation stops the run`() = runTest {
         val screen = FakeScreen(screen(nodes = arrayOf(node("a", text = "Send", resourceId = "com.example:id/send"))))
         val sendStep = clickStep(label = "Send", resourceId = "com.example:id/send").copy(intent = StepIntent.SEND)
@@ -350,6 +340,30 @@ class SkillExecutorTest {
 
         assertThat(outcome.status).isEqualTo(OutcomeStatus.PARTIAL)
         assertThat(screen.clicked).containsExactly("a")
+    }
+
+    @Test
+    fun `a run with no reasoning runtime is postponed rather than failed`() = runTest {
+        val screen = FakeScreen(screen(nodes = arrayOf(node("a", text = "Reports"))))
+        val skill = skill(listOf(clickStep(resourceId = null)))
+
+        val outcome = executor(screen, ScriptedProvider(available = false)).execute(skill, task(skill), Recorder())
+
+        assertThat(outcome.status).isEqualTo(OutcomeStatus.DEFERRED)
+        assertThat(outcome.message).contains("Waiting for a runtime")
+    }
+
+    @Test
+    fun `a target a runtime examined and rejected fails rather than postponing`() = runTest {
+        val provider = ScriptedProvider()
+            .answerWith("element-match", ElementMatch(index = -1, confidence = 0.9f, reason = "absent"))
+        val screen = FakeScreen(screen(nodes = arrayOf(node("a", text = "Reports"))))
+        val skill = skill(listOf(clickStep(resourceId = null)))
+
+        val outcome = executor(screen, provider).execute(skill, task(skill), Recorder())
+
+        assertThat(outcome.status).isEqualTo(OutcomeStatus.PARTIAL)
+        assertThat(outcome.goalValidated).isFalse()
     }
 
     @Test

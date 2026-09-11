@@ -200,7 +200,11 @@ class SkillExecutor(
                 observer.onEvent(
                     event(task.id, ExecutionEventType.STEP_FAILED, step.id, index, message, success = false),
                 )
-                return partial(task, skill, results, cloudCalls, deviceAiCalls, message, OutcomeStatus.PARTIAL)
+                // Nothing was available to make the decision, so the run is paused rather
+                // than failed: the steps completed so far remain valid and the same
+                // automation will succeed once a runtime is reachable again.
+                val status = if (outcome.awaitingReasoning) OutcomeStatus.DEFERRED else OutcomeStatus.PARTIAL
+                return partial(task, skill, results, cloudCalls, deviceAiCalls, message, status)
             }
         }
 
@@ -274,6 +278,7 @@ class SkillExecutor(
         }
 
         var attempt = 0
+        var awaitingReasoning = false
         val attemptedMoves = mutableListOf<String>()
         val navigationSteps = mutableListOf<SkillStep>()
 
@@ -292,6 +297,8 @@ class SkillExecutor(
                 allowVision = step.fallback.allowVision,
                 localOnly = localOnly || !step.fallback.allowCloudAi,
             )
+
+            awaitingReasoning = resolution is Resolution.NeedsReasoning
 
             if (resolution is Resolution.Found) {
                 if (resolution.tier == RuntimeTier.DEVICE_AI) deviceAiCalls++
@@ -397,16 +404,16 @@ class SkillExecutor(
             )
         }
 
+        val message = if (awaitingReasoning) {
+            "Waiting for a runtime that can decide \"${step.describeForUser()}\""
+        } else {
+            "Could not complete \"${step.describeForUser()}\""
+        }
         return StepOutcome(
-            result = failedStep(
-                step,
-                index,
-                startedAt,
-                "Could not complete \"${step.describeForUser()}\"",
-                step.validation.mode,
-            ),
+            result = failedStep(step, index, startedAt, message, step.validation.mode),
             cloudCalls = cloudCalls,
             deviceAiCalls = deviceAiCalls,
+            awaitingReasoning = awaitingReasoning,
         )
     }
 
@@ -684,7 +691,13 @@ class SkillExecutor(
     }
 }
 
-private data class StepOutcome(val result: StepResult, val cloudCalls: Int, val deviceAiCalls: Int)
+private data class StepOutcome(
+    val result: StepResult,
+    val cloudCalls: Int,
+    val deviceAiCalls: Int,
+    /** True when the step stalled because no runtime could make a required decision. */
+    val awaitingReasoning: Boolean = false,
+)
 
 private data class ValueReading(
     val value: String?,
