@@ -33,8 +33,9 @@ kotlin {
 dependencies {
     api(project(":core"))
     implementation(libs.androidx.core.ktx)
-    // ML Kit GenAI Prompt API (Gemini Nano via AICore). Optional at runtime:
-    // capability is always probed, never assumed. See ADR-02 / ADR-03.
+    // ML Kit GenAI Prompt API. Present at compile time, optional at run time:
+    // availability is probed on every launch and the app degrades to other tiers
+    // when the device or the model cannot serve a request.
     implementation(libs.mlkit.genai.prompt)
 
     testImplementation(libs.junit)
