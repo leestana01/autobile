@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Autobile needs to read the on-screen content of other apps to understand what the user
+  is doing during a demonstration, and to locate the same elements again when replaying
+  it. Screen capture and gesture dispatch are what allow an automation to run without the
+  user present.
+
+  canRetrieveWindowContent and canPerformGestures are declared here; the user grants them
+  explicitly in system settings and can revoke them at any time.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked|typeViewLongClicked|typeViewScrolled|typeViewTextChanged|typeViewSelected|typeViewFocused"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canPerformGestures="true"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="50"
+    android:summary="@string/accessibility_service_summary" />
