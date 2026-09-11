@@ -56,15 +56,18 @@ import com.autobile.runtime.trigger.TriggerScheduler
 import com.autobile.runtime.validation.ValidationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.Closeable
 
 /** Process-wide dependency graph shared by UI, workers, and Android services. */
 class AppGraph(val appContext: Context) : AutobileServices, Closeable {
     private val context = appContext.applicationContext
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val graphJob: Job = SupervisorJob()
+    private val scope = CoroutineScope(graphJob + Dispatchers.Default)
     private val database = AutobileDatabase(context)
 
     override val settings = SettingsStore(context)
@@ -239,9 +242,9 @@ class AppGraph(val appContext: Context) : AutobileServices, Closeable {
     override fun close() {
         visibility.stop()
         recorder.cancel()
+        runBlocking { graphJob.cancelAndJoin() }
         aiRouter.close()
         database.close()
-        scope.cancel()
     }
 
     private companion object {
