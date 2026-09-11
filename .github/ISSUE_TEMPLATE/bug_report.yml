@@ -1,0 +1,61 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Execution history and demonstration traces can contain anything that was on your
+        screen. Please redact before pasting, and never attach real credentials or
+        personal messages.
+
+        If the issue could be used against someone's device, report it privately through
+        a [security advisory](../../security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Teach an automation that…
+        2. Run it
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: Pixel 8, Android 15
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime profile
+      description: Shown on the settings screen.
+      options:
+        - On-device AI
+        - Local model
+        - Cloud assisted
+        - Offline deterministic
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: 0.1.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redacted `adb logcat` output, if you have it.
+      render: text

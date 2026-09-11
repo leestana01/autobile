@@ -417,6 +417,51 @@ class SkillExecutorTest {
     }
 
     @Test
+    fun `a launch step is validated against the screen it opened, not the one it left`() = runTest {
+        // The whole point of a launch step is to change which app is in front. Validating
+        // the screen captured before it runs means every automation fails at step one.
+        val screen = FakeScreen(
+            current = screen(packageName = "com.autobile", nodes = arrayOf(node("a", text = "Run"))),
+            nextScreen = screen(packageName = "com.android.settings", nodes = arrayOf(node("b", text = "Network"))),
+        )
+        val launch = SkillStep(
+            id = "launch",
+            intent = StepIntent.LAUNCH_APP,
+            target = TargetSemantics("Android settings"),
+            action = ActionSpec.LaunchApp("com.android.settings"),
+            expectedState = ExpectedState(requiredPackage = "com.android.settings"),
+            validation = ValidationSpec(mode = ValidationMode.STRUCTURAL, goalCritical = true),
+        )
+        val skill = skill(listOf(launch))
+
+        val outcome = executor(screen, ScriptedProvider()).execute(skill, task(skill), Recorder())
+
+        assertThat(outcome.status).isEqualTo(OutcomeStatus.SUCCESS)
+        assertThat(screen.launched).containsExactly("com.android.settings")
+    }
+
+    @Test
+    fun `a back step is validated against the screen it returned to`() = runTest {
+        val screen = FakeScreen(
+            current = screen(windowTitle = "Detail", nodes = arrayOf(node("a", text = "Detail"))),
+            nextScreen = screen(windowTitle = "List", nodes = arrayOf(node("b", text = "Inbox"))),
+        )
+        val back = SkillStep(
+            id = "back",
+            intent = StepIntent.GO_BACK,
+            target = TargetSemantics("back"),
+            action = ActionSpec.Back,
+            expectedState = ExpectedState(requiredTexts = listOf("Inbox")),
+            validation = ValidationSpec(mode = ValidationMode.STRUCTURAL),
+        )
+        val skill = skill(listOf(back))
+
+        val outcome = executor(screen, ScriptedProvider()).execute(skill, task(skill), Recorder())
+
+        assertThat(outcome.status).isEqualTo(OutcomeStatus.SUCCESS)
+    }
+
+    @Test
     fun `structural validation failure is reported against the observed screen`() = runTest {
         val screen = FakeScreen(
             screen(nodes = arrayOf(node("a", text = "Daily Sales", resourceId = "com.example:id/daily"))),
