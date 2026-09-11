@@ -15,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -460,12 +461,15 @@ private fun SkillDetailScreen(state: AppUiState, viewModel: AppViewModel) {
         }
         DetailCard("Trigger", skill.trigger.describe())
         DetailCard("Autonomy", skill.effectiveAutonomy().label)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             AutonomyLevel.entries.forEach { level ->
                 FilterChip(
                     selected = skill.autonomyLevel == level,
                     onClick = { viewModel.setSkillAutonomy(skill, level) },
-                    label = { Text(level.name.substring(0, 2)) },
+                    label = { Text(level.label) },
                 )
             }
         }
@@ -611,6 +615,7 @@ private fun TeachScreen(state: AppUiState, viewModel: AppViewModel, context: Con
 private fun TeachReviewScreen(state: AppUiState, viewModel: AppViewModel) {
     val draft = state.compilation ?: return EmptyCard("Nothing to review", "Finish a teaching session first.")
     val skill = draft.skill
+    var correction by remember(skill.id) { mutableStateOf("") }
     var scheduled by remember(skill.id) { mutableStateOf(skill.trigger is TriggerSpec.Time) }
     var hour by remember(skill.id) { mutableStateOf((skill.trigger as? TriggerSpec.Time)?.hour?.toString() ?: "09") }
     var minute by remember(skill.id) { mutableStateOf((skill.trigger as? TriggerSpec.Time)?.minute?.toString() ?: "00") }
@@ -626,6 +631,19 @@ private fun TeachReviewScreen(state: AppUiState, viewModel: AppViewModel) {
         if (skill.constants.isEmpty()) Text("No fixed values detected") else skill.constants.forEach { Text("• ${it.name}: ${it.value}") }
         SectionTitle("Steps")
         skill.steps.forEachIndexed { index, step -> Text("${index + 1}. ${step.description.ifBlank { step.target.intentLabel }}") }
+        SectionTitle("Something not right?")
+        Text("Describe the correction and the steps will be rewritten, not just the wording.")
+        OutlinedTextField(
+            value = correction,
+            onValueChange = { correction = it },
+            label = { Text("For example: send net sales, not gross") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        FilledTonalButton(
+            onClick = { viewModel.correctUnderstanding(correction); correction = "" },
+            enabled = correction.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Correct my understanding") }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Run on a schedule", modifier = Modifier.weight(1f))
             Switch(checked = scheduled, onCheckedChange = {

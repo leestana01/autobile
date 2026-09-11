@@ -168,6 +168,50 @@ class SkillEditorTest {
         assertThat(preview).isInstanceOf(SkillEditPreview.Rejected::class.java)
     }
 
+    @Test
+    fun `a correction can be previewed against a draft that is not yet saved`() = runTest {
+        val draft = skill().copy(
+            id = "unsaved-draft",
+            steps = listOf(
+                SkillStep(
+                    id = "read",
+                    intent = StepIntent.READ_VALUE,
+                    target = TargetSemantics(
+                        intentLabel = "Gross sales",
+                        description = "Gross sales",
+                        valueSemantics = ValueSemantics("gross sales"),
+                    ),
+                    action = ActionSpec.ReadValue("value"),
+                    validation = ValidationSpec(
+                        mode = ValidationMode.VALUE,
+                        valueConstraints = ValueConstraints(fieldName = "gross sales"),
+                    ),
+                ),
+            ),
+        )
+
+        val preview = editor.buildPreview(draft, edit(SkillEditField.VALUE_FIELD, "net sales", meaningChanged = true))
+
+        assertThat(preview).isInstanceOf(SkillEditPreview.Ready::class.java)
+        val updated = (preview as SkillEditPreview.Ready).updated
+        assertThat(updated.steps.first().target.valueSemantics?.fieldName).isEqualTo("net sales")
+        assertThat(updated.steps.first().validation.valueConstraints?.fieldName).isEqualTo("net sales")
+        assertThat(preview.meaningChanged).isTrue()
+    }
+
+    @Test
+    fun `a draft preview never consults the store`() = runTest {
+        // The draft is deliberately absent from the store; a store lookup would reject it.
+        val preview = editor.preview(
+            skill = skill().copy(id = "not-in-store"),
+            request = "9시 말고 8시 30분",
+            localOnly = true,
+        )
+
+        assertThat(preview).isInstanceOf(SkillEditPreview.Ready::class.java)
+        assertThat((preview as SkillEditPreview.Ready).updated.trigger).isEqualTo(TriggerSpec.Time(8, 30))
+    }
+
     private fun skill() = SemanticSkill(
         id = "skill",
         version = 3,

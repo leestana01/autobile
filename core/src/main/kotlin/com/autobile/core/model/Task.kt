@@ -126,6 +126,8 @@ enum class ExecutionEventType {
     VALIDATION_RESULT,
     RECOVERY_STARTED,
     RECOVERY_COMPLETED,
+    /** One step did not succeed. Optional steps produce this without failing the task. */
+    STEP_FAILED,
     RISK_DECISION,
     USER_CONFIRMATION,
     SKILL_PATCH_PROPOSED,

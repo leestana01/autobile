@@ -5,12 +5,18 @@ import com.autobile.ai.provider.StructuredInferenceProvider
 import com.autobile.ai.provider.StructuredRequest
 import com.autobile.ai.router.AiRuntimeRouter
 import com.autobile.core.model.Bounds
+import com.autobile.core.model.Direction
+import com.autobile.core.model.PerceptionResult
 import com.autobile.core.model.InferenceError
 import com.autobile.core.model.InferenceErrorKind
 import com.autobile.core.model.InferenceResult
 import com.autobile.core.model.RuntimeTier
 import com.autobile.core.model.ScreenSnapshot
 import com.autobile.core.model.UiNode
+import com.autobile.runtime.control.ActionResult
+import com.autobile.runtime.control.ScreenActuator
+import com.autobile.runtime.perception.ScreenObserver
+import com.autobile.runtime.perception.ScreenshotCapture
 
 /**
  * A provider whose answers are supplied by the test.
@@ -85,3 +91,84 @@ fun screen(
     screenWidth = 1080,
     screenHeight = 2400,
 )
+
+/**
+ * An in-memory screen that both observes and acts.
+ *
+ * Implementing both halves of the device surface in one object keeps a test's setup to
+ * a single fixture, and lets an assertion check what was pressed against what was shown
+ * at the time.
+ */
+class FakeScreen(
+    private var current: ScreenSnapshot = ScreenSnapshot(),
+    private val perception: PerceptionResult? = null,
+    /** Swapped in after the first successful action, to model a screen transition. */
+    private val nextScreen: ScreenSnapshot? = null,
+    private val screenshot: ScreenshotCapture = ScreenshotCapture.Unavailable("not needed"),
+) : ScreenObserver, ScreenActuator {
+
+    val clicked = mutableListOf<String>()
+    val typed = mutableListOf<Pair<String, String>>()
+    val launched = mutableListOf<String>()
+    val scrolled = mutableListOf<Direction>()
+    var backPresses: Int = 0
+        private set
+
+    override suspend fun observe(settleMs: Long): PerceptionResult =
+        perception ?: PerceptionResult.Success(current)
+
+    override suspend fun observeStable(timeoutMs: Long, settleMs: Long): PerceptionResult =
+        perception ?: PerceptionResult.Success(current)
+
+    override suspend fun captureScreenshot(): ScreenshotCapture = screenshot
+
+    override suspend fun click(node: UiNode): ActionResult {
+        clicked += node.nodeId
+        advance()
+        return ActionResult.Performed("click")
+    }
+
+    override suspend fun longPress(node: UiNode, durationMs: Long): ActionResult {
+        clicked += node.nodeId
+        advance()
+        return ActionResult.Performed("long press")
+    }
+
+    override suspend fun tapAt(bounds: Bounds): ActionResult = ActionResult.Performed("tap")
+
+    override suspend fun tapRatio(xRatio: Float, yRatio: Float): ActionResult = ActionResult.Performed("tap")
+
+    override suspend fun swipe(direction: Direction, distanceRatio: Float, durationMs: Long): ActionResult {
+        scrolled += direction
+        return ActionResult.Performed("swipe")
+    }
+
+    override suspend fun scroll(container: UiNode?, direction: Direction): ActionResult {
+        scrolled += direction
+        return ActionResult.Performed("scroll")
+    }
+
+    override suspend fun inputText(node: UiNode, value: String, clearExisting: Boolean): ActionResult {
+        typed += node.nodeId to value
+        advance()
+        return ActionResult.Performed("input")
+    }
+
+    override fun pressBack(): ActionResult {
+        backPresses++
+        return ActionResult.Performed("back")
+    }
+
+    override fun pressHome(): ActionResult = ActionResult.Performed("home")
+
+    override fun launchApp(packageName: String, activity: String?): ActionResult {
+        launched += packageName
+        advance()
+        return ActionResult.Performed("launch")
+    }
+
+    /** Moves to the follow-up screen, once, so a recovery tap can reveal a new target. */
+    private fun advance() {
+        nextScreen?.let { current = it }
+    }
+}

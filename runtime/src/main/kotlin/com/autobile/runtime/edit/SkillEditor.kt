@@ -25,6 +25,17 @@ class SkillEditor(
 ) {
     suspend fun preview(skillId: String, request: String, localOnly: Boolean): SkillEditPreview {
         val skill = skillStore.get(skillId) ?: return SkillEditPreview.Rejected("Automation not found")
+        return preview(skill, request, localOnly)
+    }
+
+    /**
+     * Previews a change against a skill the caller already holds.
+     *
+     * Used while reviewing a freshly compiled demonstration, before it has an entry in
+     * the store: a misreading of what the user meant is easiest to catch at that point,
+     * and hardest to notice once the automation has been running for a week.
+     */
+    suspend fun preview(skill: SemanticSkill, request: String, localOnly: Boolean): SkillEditPreview {
         if (request.isBlank()) return SkillEditPreview.Rejected("Describe the change you want")
 
         parseDeterministic(request)?.let { return buildPreview(skill, it) }

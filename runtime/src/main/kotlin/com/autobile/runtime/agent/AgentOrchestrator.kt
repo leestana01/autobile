@@ -34,7 +34,7 @@ import com.autobile.runtime.capability.CapabilityDetector
 import com.autobile.runtime.executor.SkillExecutor
 import com.autobile.runtime.executor.ExecutionObserver
 import com.autobile.runtime.executor.describeForUser
-import com.autobile.runtime.perception.PerceptionEngine
+import com.autobile.runtime.perception.ScreenObserver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,7 +59,7 @@ import java.util.Collections
  */
 class AgentOrchestrator(
     private val executor: SkillExecutor,
-    private val perception: PerceptionEngine,
+    private val perception: ScreenObserver,
     private val router: AiRuntimeRouter,
     private val skillStore: SkillStore,
     private val historyStore: HistoryStore,
@@ -397,13 +397,10 @@ class AgentOrchestrator(
         private val confirmation: ConfirmationMode,
     ) : ExecutionObserver {
 
+        // Routing events are recorded by the router listener, which also owns the
+        // routing metrics, so this only has to persist what the executor reports.
         override suspend fun onEvent(event: ExecutionEvent) {
             historyStore.appendEvent(event)
-            if (event.type == ExecutionEventType.AI_RUNTIME_SELECTED) {
-                metrics.increment(Metric.AI_DECISIONS_TOTAL)
-                if (event.tier?.isLocal == true) metrics.increment(Metric.AI_DECISIONS_ON_DEVICE)
-                if (event.tier?.isCloud == true) metrics.increment(Metric.CLOUD_ESCALATIONS)
-            }
         }
 
         override suspend fun onStepStarted(index: Int, step: SkillStep) {

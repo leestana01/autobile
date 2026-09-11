@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
-import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.autobile.core.common.Logx
@@ -157,6 +156,24 @@ class AutobileAccessibilityService : AccessibilityService() {
         return withTimeoutOrNull(timeoutMs) { deferred.await() } ?: false
     }
 
+    /**
+     * The capabilities the user actually granted.
+     *
+     * Declaring a capability in the service configuration is a request, not a
+     * guarantee: the platform decides what to grant, and some builds withhold screen
+     * capture. Reading the granted bits keeps the capability profile a probe rather
+     * than an assumption.
+     */
+    fun grantedCapabilities(): GrantedCapabilities {
+        val capabilities = runCatching { serviceInfo?.capabilities ?: 0 }.getOrDefault(0)
+        return GrantedCapabilities(
+            canTakeScreenshot = capabilities and AccessibilityServiceInfo.CAPABILITY_CAN_TAKE_SCREENSHOT != 0,
+            canPerformGestures = capabilities and AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES != 0,
+            canRetrieveWindowContent =
+                capabilities and AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT != 0,
+        )
+    }
+
     fun pressBack(): Boolean = performGlobalAction(GLOBAL_ACTION_BACK)
 
     fun pressHome(): Boolean = performGlobalAction(GLOBAL_ACTION_HOME)
@@ -164,14 +181,18 @@ class AutobileAccessibilityService : AccessibilityService() {
     fun openRecents(): Boolean = performGlobalAction(GLOBAL_ACTION_RECENTS)
 
     companion object {
-        /** Android exposes accessibility screenshots from this level onward. */
-        const val MIN_SCREENSHOT_API = Build.VERSION_CODES.R
-
         private const val EVENT_THROTTLE_MS = 50L
         private const val SCREENSHOT_TIMEOUT_MS = 4_000L
         private const val GESTURE_TIMEOUT_MS = 8_000L
     }
 }
+
+/** What the platform actually granted this service, as opposed to what it asked for. */
+data class GrantedCapabilities(
+    val canTakeScreenshot: Boolean,
+    val canPerformGestures: Boolean,
+    val canRetrieveWindowContent: Boolean,
+)
 
 /** Result of a screenshot attempt, including the reasons it may legitimately fail. */
 sealed interface ScreenshotOutcome {

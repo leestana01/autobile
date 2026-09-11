@@ -195,6 +195,40 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
         }
     }
 
+    /**
+     * Applies a plain-language correction to the understanding just presented.
+     *
+     * Editing the goal text alone would leave the compiled steps untouched, so a
+     * correction such as "send net sales, not gross" has to run through the same editor
+     * that changes a saved automation and rewrite the step semantics.
+     */
+    fun correctUnderstanding(request: String) = launchAction {
+        val draft = _state.value.compilation ?: return@launchAction
+        if (request.isBlank()) return@launchAction
+        val preview = graph.skillEditor.preview(
+            skill = draft.skill,
+            request = request,
+            localOnly = !graph.settings.privacy().cloudEnabled,
+        )
+        when (preview) {
+            is SkillEditPreview.Rejected -> showMessage(preview.reason)
+            is SkillEditPreview.Ready -> {
+                graph.metricsStore.increment(Metric.USER_INTERVENTIONS)
+                _state.update { state ->
+                    state.copy(
+                        compilation = state.compilation?.copy(
+                            // The draft is still unsaved, so it stays at version 1
+                            // rather than inheriting the editor's incremented version.
+                            skill = preview.updated.copy(version = draft.skill.version),
+                            summary = preview.summary,
+                        ),
+                        message = "Updated: ${preview.summary}",
+                    )
+                }
+            }
+        }
+    }
+
     fun updateTeachSchedule(hour: Int?, minute: Int?) {
         _state.update { state ->
             val draft = state.compilation ?: return@update state
