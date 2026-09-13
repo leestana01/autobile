@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * Whatever survives minimisation is what a model sees, and on an escalated request it
@@ -115,6 +116,7 @@ class ContextMinimizerTest {
     }
 
     @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun `sensitive accessibility regions are removed from screenshots`() {
         val bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.WHITE)
