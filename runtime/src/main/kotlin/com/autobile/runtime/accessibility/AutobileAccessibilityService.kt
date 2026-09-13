@@ -109,13 +109,25 @@ class AutobileAccessibilityService : AccessibilityService() {
                     override fun onFailure(errorCode: Int) {
                         deferred.complete(
                             when (errorCode) {
+                                ERROR_TAKE_SCREENSHOT_SECURE_WINDOW ->
+                                    ScreenshotOutcome.SecureWindowBlocked
+
                                 ERROR_TAKE_SCREENSHOT_INVALID_DISPLAY ->
                                     ScreenshotOutcome.Failed("Display is not available")
+
+                                ERROR_TAKE_SCREENSHOT_INVALID_WINDOW ->
+                                    ScreenshotOutcome.Failed("Window is no longer available")
+
+                                ERROR_TAKE_SCREENSHOT_NO_ACCESSIBILITY_ACCESS ->
+                                    ScreenshotOutcome.Failed("Screenshot access is not granted")
+
+                                ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR ->
+                                    ScreenshotOutcome.Failed("Android could not capture this screen")
 
                                 ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT ->
                                     ScreenshotOutcome.Throttled
 
-                                else -> ScreenshotOutcome.SecureWindowBlocked
+                                else -> ScreenshotOutcome.Failed("Screenshot failed with error $errorCode")
                             },
                         )
                     }

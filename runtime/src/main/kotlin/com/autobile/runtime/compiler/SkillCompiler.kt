@@ -80,6 +80,12 @@ class SkillCompiler(
         if (trace.events.isEmpty()) {
             return CompilationResult.Failed("Nothing was recorded")
         }
+        if (trace.events.any { it.sensitiveInput }) {
+            return CompilationResult.Failed(
+                "Sensitive text was entered during teaching. Autobile did not save it; " +
+                    "teach a workflow that does not include passwords or one-time codes.",
+            )
+        }
 
         val segmented = segmenter.segment(trace, localOnly)
         val compilable = segmented.compilable()

@@ -35,6 +35,8 @@ data class TraceEvent(
     val targetNode: UiNode? = null,
     val coordinates: Point? = null,
     val inputValue: String? = null,
+    /** The value was entered into a password/secret field and was deliberately not retained. */
+    val sensitiveInput: Boolean = false,
     val stateTransition: StateTransition? = null,
     val screenshotBeforeRef: String? = null,
     val screenshotAfterRef: String? = null,

@@ -55,6 +55,7 @@ object AccessibilityBridge {
             className = event.className?.toString().orEmpty(),
             text = event.text.joinToString(" ") { it.toString() },
             contentDescription = event.contentDescription?.toString(),
+            isPassword = event.isPassword,
             timestamp = System.currentTimeMillis(),
         )
         _events.tryEmit(observed)
@@ -89,6 +90,7 @@ data class ObservedEvent(
     val className: String,
     val text: String,
     val contentDescription: String?,
+    val isPassword: Boolean,
     val timestamp: Long,
 ) {
     val isWindowChange: Boolean

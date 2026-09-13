@@ -1,6 +1,9 @@
 package com.autobile.ai.context
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Rect
 import com.autobile.core.common.Logx
 import com.autobile.core.model.Bounds
@@ -153,6 +156,38 @@ class ContextMinimizer(
             (source.height * scale).toInt().coerceAtLeast(1),
             true,
         )
+    }
+
+    /**
+     * Removes secret and recognisably sensitive accessibility regions from pixels before
+     * an image can reach any inference provider. Masking happens on the full image before
+     * cropping so screen-coordinate bounds remain valid.
+     */
+    fun maskSensitiveRegions(bitmap: Bitmap, nodes: List<UiNode>): Bitmap {
+        val sensitive = nodes.filter { node ->
+            node.sensitive || Logx.containsSensitive(node.text) || Logx.containsSensitive(node.contentDescription)
+        }
+        if (sensitive.isEmpty()) return bitmap
+
+        val mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutable)
+        val paint = Paint().apply {
+            color = Color.BLACK
+            style = Paint.Style.FILL
+        }
+        sensitive.forEach { node ->
+            val bounds = node.bounds
+            if (!bounds.isEmpty) {
+                canvas.drawRect(
+                    bounds.left.coerceIn(0, mutable.width).toFloat(),
+                    bounds.top.coerceIn(0, mutable.height).toFloat(),
+                    bounds.right.coerceIn(0, mutable.width).toFloat(),
+                    bounds.bottom.coerceIn(0, mutable.height).toFloat(),
+                    paint,
+                )
+            }
+        }
+        return mutable
     }
 
     /** Rough token estimate used to decide whether a tier's context window suffices. */

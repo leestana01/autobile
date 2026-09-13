@@ -84,6 +84,7 @@ class UiTreeReader(
                 selected = node.isSelected,
                 enabled = node.isEnabled,
                 focused = node.isFocused,
+                sensitive = node.isPassword,
                 visible = node.isVisibleToUser && rect.width() > 0 && rect.height() > 0,
                 depth = depth,
                 indexPath = indexPath,

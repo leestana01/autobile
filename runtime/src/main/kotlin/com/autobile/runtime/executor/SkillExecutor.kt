@@ -203,7 +203,11 @@ class SkillExecutor(
                 // Nothing was available to make the decision, so the run is paused rather
                 // than failed: the steps completed so far remain valid and the same
                 // automation will succeed once a runtime is reachable again.
-                val status = if (outcome.awaitingReasoning) OutcomeStatus.DEFERRED else OutcomeStatus.PARTIAL
+                val status = when {
+                    outcome.blockedSecureWindow -> OutcomeStatus.BLOCKED
+                    outcome.awaitingReasoning -> OutcomeStatus.DEFERRED
+                    else -> OutcomeStatus.PARTIAL
+                }
                 return partial(task, skill, results, cloudCalls, deviceAiCalls, message, status)
             }
         }
@@ -289,14 +293,19 @@ class SkillExecutor(
 
         var attempt = 0
         var awaitingReasoning = false
+        var secureWindowBlocked = false
         val attemptedMoves = mutableListOf<String>()
         val navigationSteps = mutableListOf<SkillStep>()
 
         while (attempt <= step.fallback.maxRetries) {
-            val screenshot = if (step.preferredResolver == ResolverKind.VISION || attempt > 0) {
-                (perception.captureScreenshot() as? ScreenshotCapture.Success)?.bitmap
+            val screenshotCapture = if (step.preferredResolver == ResolverKind.VISION || attempt > 0) {
+                perception.captureScreenshot()
             } else {
                 null
+            }
+            secureWindowBlocked = secureWindowBlocked || screenshotCapture is ScreenshotCapture.SecureWindowBlocked
+            val screenshot = (screenshotCapture as? ScreenshotCapture.Success)?.bitmap?.let {
+                minimizer.maskSensitiveRegions(it, snapshot.nodes)
             }
 
             val resolution = resolver.resolve(
@@ -414,16 +423,17 @@ class SkillExecutor(
             )
         }
 
-        val message = if (awaitingReasoning) {
-            "Waiting for a runtime that can decide \"${step.describeForUser()}\""
-        } else {
-            "Could not complete \"${step.describeForUser()}\""
+        val message = when {
+            secureWindowBlocked -> "This screen is protected and cannot be read"
+            awaitingReasoning -> "Waiting for a runtime that can decide \"${step.describeForUser()}\""
+            else -> "Could not complete \"${step.describeForUser()}\""
         }
         return StepOutcome(
             result = failedStep(step, index, startedAt, message, step.validation.mode),
             cloudCalls = cloudCalls,
             deviceAiCalls = deviceAiCalls,
             awaitingReasoning = awaitingReasoning,
+            blockedSecureWindow = secureWindowBlocked,
         )
     }
 
@@ -707,6 +717,8 @@ private data class StepOutcome(
     val deviceAiCalls: Int,
     /** True when the step stalled because no runtime could make a required decision. */
     val awaitingReasoning: Boolean = false,
+    /** Android refused pixels for protected content and no non-visual path succeeded. */
+    val blockedSecureWindow: Boolean = false,
 )
 
 private data class ValueReading(

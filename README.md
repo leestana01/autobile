@@ -2,13 +2,17 @@
 
 **English** · [한국어](README.ko.md)
 
+[![Android](https://github.com/leestana01/autobile/actions/workflows/android.yml/badge.svg)](https://github.com/leestana01/autobile/actions/workflows/android.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Android 11+](https://img.shields.io/badge/Android-11%2B-3DDC84.svg)](https://developer.android.com/about/versions/11)
+
 Autobile is a device-first Android automation agent. Teach it a routine once by doing
 the task on your phone, review what it understood, and replay the learned automation
 manually, on a schedule, or in response to a notification.
 
 The runtime prefers the smallest capable execution path: deterministic accessibility
-actions first, then on-device inference, an optional local model, and finally an
-explicitly enabled cloud provider. Important actions are checked by deterministic risk
+actions first, then on-device inference, and finally an explicitly enabled cloud
+provider. Important actions are checked by deterministic risk
 policy and every meaningful step is validated against the resulting screen.
 
 <p align="center">
@@ -31,7 +35,7 @@ policy and every meaningful step is validated against the resulting screen.
 
 ## Install
 
-Download `app-release.apk` from the [latest release](https://github.com/leestana01/autobile/releases/latest)
+Download the versioned APK from the [latest release](https://github.com/leestana01/autobile/releases/latest)
 and install it. Autobile is not on Google Play; see [Distribution note](#distribution-note).
 
 Releases are signed with the same key, so Android will refuse an update that did not come
@@ -89,7 +93,10 @@ Stored automations decode through generated serializers that R8 can remove while
 build still succeeds and every unit test still passes. That failure would surface on a
 user's phone after an update, as every automation they taught disappearing.
 
-## Project layout
+## Architecture and project layout
+
+See [Architecture](docs/ARCHITECTURE.md) for execution flow, module boundaries, privacy
+invariants, persistence compatibility, and Android background constraints.
 
 ```text
 app/       Compose UI, onboarding, dependency wiring, and user-facing settings
@@ -111,8 +118,21 @@ Autobile explains each permission before opening Android settings:
 
 Cloud assistance is off by default. Text and screenshots have separate consent controls;
 screenshots are cropped and sensitive text is masked before an eligible request leaves
-the device. Password-manager and authenticator apps are blocked by default, and unknown
+the device. Cloud credentials are encrypted with Android Keystore and endpoints must use
+HTTPS. Password-manager and authenticator apps are blocked by default, and unknown
 apps require confirmation.
+
+## Current limitations
+
+- Automations operate the visible, unlocked foreground UI; Android does not provide a
+  general-purpose virtual phone for background use.
+- Natural-language commands run an existing learned skill or open teaching. This beta does
+  not improvise arbitrary unreviewed action plans.
+- Passwords and one-time codes are never learned. A demonstration containing a protected
+  text field is rejected instead of storing a reusable secret.
+- Gemini Nano availability and features vary by device. Cloud fallback remains opt-in.
+- The optional local-model interface exists, but a downloadable LiteRT-LM engine is not
+  included in this release.
 
 ## Distribution note
 
@@ -124,7 +144,7 @@ full runtime than a general-purpose store listing.
 ## Project status
 
 Early. The core loop — teach, confirm, compile, replay, validate, repair — works and is
-covered by 173 unit tests plus instrumentation tests that run against the shrunk build on
+covered by unit and instrumentation tests that run against the shrunk build on
 a device. On-device generative features depend on hardware support that varies widely,
 and the reliability of learned automations across third-party apps has not been measured
 at scale. Treat this as something to try and report back on, not as something to depend
@@ -135,6 +155,8 @@ on unattended.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing and the standards a change is
 held to. Bug reports and feature requests are welcome through
 [issues](https://github.com/leestana01/autobile/issues).
+
+Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
 Please report anything that could be used against a running install privately — see
 [SECURITY.md](SECURITY.md).

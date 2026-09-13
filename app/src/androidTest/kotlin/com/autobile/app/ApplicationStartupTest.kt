@@ -128,6 +128,20 @@ class ApplicationStartupTest {
         assertTrue("Sensitive text masking was off by default", privacy.maskSensitiveFields)
     }
 
+    @Test
+    fun cloudCredentialIsEncryptedAtRest() {
+        val graph = (context.applicationContext as AutobileApplication).graph
+        val credential = "test-cloud-credential"
+
+        assertTrue("Credential could not be secured", graph.settings.setCloudApiKey(credential))
+        val stored = context.getSharedPreferences("autobile_settings", Context.MODE_PRIVATE)
+            .getString("cloud_api_key", "")
+
+        assertTrue("Credential was stored in plaintext", stored != credential)
+        assertEquals(credential, graph.settings.cloudApiKey())
+        graph.settings.setCloudApiKey("")
+    }
+
     private companion object {
         const val CAPABILITY_TIMEOUT_MS = 20_000L
     }
