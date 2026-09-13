@@ -29,6 +29,12 @@ object Logx {
         return if (out.length > 240) out.take(240) + "…" else out
     }
 
+    /** Whether redaction would change this value. Useful before masking image regions. */
+    fun containsSensitive(value: String?): Boolean {
+        val source = value.orEmpty()
+        return source.isNotEmpty() && sensitivePatterns.any { it.containsMatchIn(source) }
+    }
+
     fun d(message: String) = Log.d(TAG, message)
     fun i(message: String) = Log.i(TAG, message)
     fun w(message: String, t: Throwable? = null) = Log.w(TAG, message, t)

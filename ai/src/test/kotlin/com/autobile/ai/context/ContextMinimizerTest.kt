@@ -1,15 +1,21 @@
 package com.autobile.ai.context
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import com.autobile.core.model.Bounds
 import com.autobile.core.model.ScreenSnapshot
 import com.autobile.core.model.UiNode
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * Whatever survives minimisation is what a model sees, and on an escalated request it
  * is also what leaves the device. Both the ranking and the masking are load-bearing.
  */
+@RunWith(RobolectricTestRunner::class)
 class ContextMinimizerTest {
 
     private val minimizer = ContextMinimizer()
@@ -107,6 +113,22 @@ class ContextMinimizerTest {
         val description = minimizer.describeScreen(snapshot(node("a", text = "otp: 993211")))
         assertThat(description).doesNotContain("993211")
         assertThat(description).contains("com.example.business")
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `sensitive accessibility regions are removed from screenshots`() {
+        val bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(Color.WHITE)
+        }
+        val password = node("password", text = "secret", bounds = Bounds(5, 5, 15, 15))
+            .copy(sensitive = true)
+
+        val masked = minimizer.maskSensitiveRegions(bitmap, listOf(password))
+
+        assertThat(masked.getPixel(10, 10)).isEqualTo(Color.BLACK)
+        assertThat(masked.getPixel(1, 1)).isEqualTo(Color.WHITE)
+        assertThat(bitmap.getPixel(10, 10)).isEqualTo(Color.WHITE)
     }
 
     @Test

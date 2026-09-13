@@ -12,7 +12,7 @@ project and the standards a change is held to.
 Set `sdk.dir` in `local.properties` or export `ANDROID_HOME`, then:
 
 ```bash
-./gradlew lintDebug test assembleDebug
+./gradlew lintDebug test assembleDebug assembleRelease
 ```
 
 That is the same command CI runs on every pull request.
@@ -70,6 +70,9 @@ automation means waits for the user.
 **Do not widen what leaves the device.** Cloud access is opt-in, screenshots are a
 separate opt-in again, and context minimisation runs before any tier is chosen. If a
 change sends more than before, say so explicitly in the pull request.
+
+**Preserve stored skills.** New serialized fields need defaults. Changes to model
+hierarchies, serializers, or R8 rules must pass the `releaseTest` instrumentation suite.
 
 **Explain why in comments, not what.** The code says what it does. Comments should cover
 the reasoning that is not recoverable from reading it — why a threshold is that value, why

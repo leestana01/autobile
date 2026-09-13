@@ -108,7 +108,8 @@ class DemonstrationRecorder(
             action = action,
             targetNode = target,
             coordinates = target?.let { Point(it.bounds.centerX, it.bounds.centerY) },
-            inputValue = (action as? ObservedAction.TextInput)?.value,
+            inputValue = (action as? ObservedAction.TextInput)?.value?.takeUnless { event.isPassword },
+            sensitiveInput = event.isPassword && action is ObservedAction.TextInput,
             stateTransition = StateTransition(
                 fromPackage = before?.packageName.orEmpty(),
                 toPackage = after?.packageName.orEmpty(),
@@ -149,7 +150,8 @@ class DemonstrationRecorder(
         AccessibilityEvent.TYPE_VIEW_CLICKED -> ObservedAction.Click
         AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> ObservedAction.LongClick
         AccessibilityEvent.TYPE_VIEW_SELECTED -> ObservedAction.Select
-        AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> ObservedAction.TextInput(text)
+        AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ->
+            ObservedAction.TextInput(if (isPassword) SENSITIVE_INPUT_MARKER else text)
         AccessibilityEvent.TYPE_VIEW_SCROLLED -> ObservedAction.Scroll(Direction.DOWN)
         AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ->
             if (packageName != lastSnapshot?.packageName) {
@@ -164,6 +166,7 @@ class DemonstrationRecorder(
     private companion object {
         const val SETTLE_MS = 200L
         const val OWN_PACKAGE_PREFIX = "com.autobile"
+        const val SENSITIVE_INPUT_MARKER = "[sensitive input]"
     }
 }
 

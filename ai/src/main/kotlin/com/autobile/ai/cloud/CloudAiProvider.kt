@@ -277,7 +277,11 @@ data class CloudConfig(
     val connectTimeoutMs: Int = 10_000,
     val readTimeoutMs: Int = 45_000,
 ) {
-    val isUsable: Boolean get() = enabled && endpoint.isNotBlank() && apiKey.isNotBlank()
+    val isUsable: Boolean
+        get() = enabled && apiKey.isNotBlank() && runCatching {
+            val url = URL(endpoint)
+            url.protocol.equals("https", ignoreCase = true) && !url.host.isNullOrBlank()
+        }.getOrDefault(false)
 
     val endpointLabel: String
         get() = runCatching { URL(endpoint).host }.getOrNull() ?: endpoint

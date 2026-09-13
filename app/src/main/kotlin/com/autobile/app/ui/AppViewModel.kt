@@ -412,13 +412,17 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
 
     fun updateCloudEnabled(enabled: Boolean) = updatePrivacy { it.copy(cloudEnabled = enabled) }
     fun updateCloudScreenshots(enabled: Boolean) = updatePrivacy { it.copy(allowScreenshotToCloud = enabled) }
-    fun updateMasking(enabled: Boolean) = updatePrivacy { it.copy(maskSensitiveFields = enabled) }
     fun updateCloudEndpoint(value: String) = updatePrivacy { it.copy(cloudEndpoint = value.trim()) }
 
     fun setCloudApiKey(value: String) {
-        graph.settings.setCloudApiKey(value.trim())
-        _state.update { it.copy(privacy = graph.settings.privacy(), message = "Cloud credential updated") }
-        refreshCapabilities()
+        val stored = graph.settings.setCloudApiKey(value.trim())
+        _state.update {
+            it.copy(
+                privacy = graph.settings.privacy(),
+                message = if (stored) "Cloud credential updated" else "Cloud credential could not be secured",
+            )
+        }
+        if (stored) refreshCapabilities()
     }
 
     fun setKillSwitch(engaged: Boolean) {

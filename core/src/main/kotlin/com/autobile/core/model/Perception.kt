@@ -27,7 +27,9 @@ data class ScreenSnapshot(
     fun interactiveNodes(): List<UiNode> = nodes.filter { it.clickable || it.editable || it.scrollable }
 
     fun allText(): List<String> =
-        nodes.flatMap { listOfNotNull(it.text, it.contentDescription) }
+        nodes.flatMap { node ->
+            listOfNotNull(node.text.takeUnless { node.sensitive }, node.contentDescription)
+        }
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
@@ -62,6 +64,8 @@ data class UiNode(
     val selected: Boolean = false,
     val enabled: Boolean = true,
     val focused: Boolean = false,
+    /** True when Android identifies this node as containing secret user input. */
+    val sensitive: Boolean = false,
     val visible: Boolean = true,
     val depth: Int = 0,
     /** Stable-ish index path from the window root, used as a weak locator. */
@@ -70,7 +74,7 @@ data class UiNode(
 ) {
     /** Text a human (or a model) would use to name this element. */
     fun label(): String =
-        listOfNotNull(text, contentDescription, hint)
+        listOfNotNull(text.takeUnless { sensitive }, contentDescription, hint)
             .map { it.trim() }
             .firstOrNull { it.isNotEmpty() }
             ?: resourceId?.substringAfterLast('/')?.replace('_', ' ')

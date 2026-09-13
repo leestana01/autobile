@@ -204,6 +204,25 @@ class SkillExecutorTest {
     }
 
     @Test
+    fun `a screenshot refused by a protected window blocks a vision step`() = runTest {
+        val screen = FakeScreen(
+            current = screen(nodes = arrayOf(node("canvas", text = "Canvas"))),
+            screenshot = com.autobile.runtime.perception.ScreenshotCapture.SecureWindowBlocked("com.bank.app"),
+        )
+        val step = clickStep(resourceId = null).copy(
+            preferredResolver = com.autobile.core.model.ResolverKind.VISION,
+        )
+        val protectedSkill = skill(listOf(step))
+
+        val outcome = executor(screen, ScriptedProvider(available = false))
+            .execute(protectedSkill, task(protectedSkill), Recorder())
+
+        assertThat(outcome.status).isEqualTo(OutcomeStatus.BLOCKED)
+        assertThat(outcome.message).contains("protected")
+        assertThat(screen.clicked).isEmpty()
+    }
+
+    @Test
     fun `the executor never writes a terminal task event`() = runTest {
         // Exactly one terminal event per run is written by the orchestrator, so the
         // executor emitting its own would duplicate every failure in the history view.

@@ -83,6 +83,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -689,10 +690,20 @@ private fun SettingsScreen(state: AppUiState, viewModel: AppViewModel, context: 
         SectionTitle("Cloud assistance")
         SettingToggle("Allow cloud escalation", "Used only when on-device options cannot complete a bounded decision.", state.privacy.cloudEnabled, viewModel::updateCloudEnabled)
         SettingToggle("Allow cropped screenshots", "Screen images stay blocked unless this separate permission is on.", state.privacy.allowScreenshotToCloud, viewModel::updateCloudScreenshots)
-        SettingToggle("Mask sensitive text", "Redact email, payment, and one-time-code patterns before inference.", state.privacy.maskSensitiveFields, viewModel::updateMasking)
+        Text(
+            "Sensitive text and matching screen regions are always masked before inference.",
+            style = MaterialTheme.typography.bodySmall,
+        )
         OutlinedTextField(endpoint, { endpoint = it }, label = { Text("Cloud endpoint") }, modifier = Modifier.fillMaxWidth())
         OutlinedButton(onClick = { viewModel.updateCloudEndpoint(endpoint) }, modifier = Modifier.fillMaxWidth()) { Text("Save endpoint") }
-        OutlinedTextField(apiKey, { apiKey = it }, label = { Text(if (state.privacy.cloudApiKeyPresent) "Replace cloud credential" else "Cloud credential") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            apiKey,
+            { apiKey = it },
+            label = { Text(if (state.privacy.cloudApiKeyPresent) "Replace cloud credential" else "Cloud credential") },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Button(onClick = { viewModel.setCloudApiKey(apiKey); apiKey = "" }, enabled = apiKey.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Store credential on device") }
 
         SectionTitle("App policies")

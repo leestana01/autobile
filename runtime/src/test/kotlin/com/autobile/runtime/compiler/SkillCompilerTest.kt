@@ -116,6 +116,20 @@ class SkillCompilerTest {
     }
 
     @Test
+    fun `a sensitive input is never compiled into a reusable skill`() = runTest {
+        val password = event(
+            0,
+            ObservedAction.TextInput("[sensitive input]"),
+            label = "Password",
+        ).copy(inputValue = null, sensitiveInput = true)
+
+        val result = compiler(provider()).compile(trace(password))
+
+        assertThat(result).isInstanceOf(CompilationResult.Failed::class.java)
+        assertThat((result as CompilationResult.Failed).reason).contains("did not save")
+    }
+
+    @Test
     fun `the inferred goal becomes the skill's goal`() = runTest {
         val result = compiler(provider()).compile(
             trace(
