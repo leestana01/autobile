@@ -47,6 +47,10 @@ apksigner verify --print-certs app-release.apk
 
 The SHA-256 fingerprint is published in each release's notes.
 
+> **0.1.0 users:** the original signing key was not retained. Version 0.2.0 establishes
+> the durable release key and requires uninstalling 0.1.0 first. This removes learned
+> automations. Releases after 0.2.0 support normal in-place updates.
+
 ## Requirements
 
 - Android Studio with Android SDK 36
