@@ -142,6 +142,20 @@ class ApplicationStartupTest {
         graph.settings.setCloudApiKey("")
     }
 
+    @Test
+    fun legacyPlaintextCloudCredentialIsMigratedOnRead() {
+        val graph = (context.applicationContext as AutobileApplication).graph
+        val credential = "legacy-test-credential"
+        val preferences = context.getSharedPreferences("autobile_settings", Context.MODE_PRIVATE)
+        preferences.edit().putString("cloud_api_key", credential).commit()
+
+        assertEquals(credential, graph.settings.cloudApiKey())
+        val migrated = preferences.getString("cloud_api_key", "")
+        assertTrue("Legacy credential was not encrypted", migrated != credential)
+        assertEquals(credential, graph.settings.cloudApiKey())
+        graph.settings.setCloudApiKey("")
+    }
+
     private companion object {
         const val CAPABILITY_TIMEOUT_MS = 20_000L
     }
